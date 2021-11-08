@@ -4,7 +4,8 @@ import googlemaps
 
 class DistanceMatrix():
     def setUp(self):
-        self.key = ""
+        with open("key.txt") as f:
+            self.key = f.read()
         self.client = googlemaps.Client(self.key)
 
     def get_depart_at_time(self, destination, arrive_time):
