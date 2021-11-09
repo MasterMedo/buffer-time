@@ -9,30 +9,28 @@ from google.oauth2.credentials import Credentials
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
+BUFFER_TIME_CALENDAR = "Buffer time"
 
 
 def main():
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
-    """
     creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
+
         with open("token.json", "w") as token:
             token.write(creds.to_json())
 
     service = build("calendar", "v3", credentials=creds)
+    calendars = list_calendars(service)
+    if BUFFER_TIME_CALENDAR not in calendars:
+        calendars[BUFFER_TIME_CALENDAR] = create_buffer_time_calendar(service)
 
     # Call the Calendar API
     now = datetime.datetime.utcnow().isoformat() + "Z"  # 'Z' indicates UTC time
@@ -79,6 +77,30 @@ def main():
 
         duration = distance_matrix["rows"][0]["elements"][0]["duration"]
         print(duration["text"])
+
+
+def list_calendars(service):
+    calendars = {}
+    page_token = None
+    while True:
+        calendar_list = service.calendarList().list(pageToken=page_token).execute()
+        for calendar in calendar_list["items"]:
+            name = calendar.get("summaryOverride", calendar.get("summary"))
+            id_ = calendar.get("id")
+            calendars[name] = calendar.get("id")
+        page_token = calendar_list.get("nextPageToken")
+        if not page_token:
+            break
+
+    return calendars
+
+
+def create_buffer_time_calendar(service):
+    calendar = {
+        "summary": BUFFER_TIME_CALENDAR,
+    }
+    created_calendar = service.calendars().insert(body=calendar).execute()
+    return created_calendar["id"]
 
 
 if __name__ == "__main__":
