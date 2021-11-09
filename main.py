@@ -1,14 +1,14 @@
 import datetime
 import os.path
+import googlemaps
+
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
-from gmaps import DistanceMatrix
-
 # If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 
 def main():
@@ -52,14 +52,33 @@ def main():
 
     if not events:
         print("No upcoming events found.")
+
+    with open("key.txt") as f:
+        google_maps_key = f.read()
+
+    google_maps_client = googlemaps.Client(google_maps_key)
+    origins = ["Radmanovačka ul. 6f, 10000, Zagreb"]
     for event in events:
-        start = event["start"].get("dateTime", event["start"].get("date"))
-        location = event["location"]
-        at = event["start"]["dateTime"]
-        dm = DistanceMatrix()
-        dm.setUp()
-        print(dm.get_depart_at_time(location, at))
-        # print(start, event)
+        start_time = event["start"].get("dateTime", event["start"].get("date"))
+        # convert start time to integer
+        if not start_time:
+            print("event has no start time")
+            continue
+
+        location = event.get("location")
+        if not location:
+            print("event has no location")
+            continue
+
+        distance_matrix = google_maps_client.distance_matrix(
+            origins=origins,
+            destinations=[location],
+            mode="driving",
+            arrival_time=start_time,
+        )
+
+        duration = distance_matrix["rows"][0]["elements"][0]["duration"]
+        print(duration["text"])
 
 
 if __name__ == "__main__":
