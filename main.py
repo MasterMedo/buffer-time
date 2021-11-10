@@ -11,6 +11,7 @@ from google.oauth2.credentials import Credentials
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 BUFFER_TIME_CALENDAR = "Buffer time"
+ID_PREFIX = "Tied to event: "
 PREFERRED_TRANSPORT = "driving"
 TRANSPORTS = ["driving", "walking", "bicycling", "transit"]
 EMOJI = {"driving": "🚗", "walking": "🚶", "bicycling": "🚴", "transit": "🚆"}
@@ -41,6 +42,33 @@ def main():
     if BUFFER_TIME_CALENDAR not in calendars:
         calendars[BUFFER_TIME_CALENDAR] = create_buffer_time_calendar(service)
 
+    # has to be a day before for buffer time events because the current event might have already started but the buffer time event for it has already passed
+    now = datetime.datetime.utcnow()
+    timeMin = now.isoformat() + "Z"
+    timeMax = (
+        now + datetime.timedelta(days=13 - now.weekday())
+    ).isoformat() + "Z"
+    # get already created buffer events linked to main events
+    buffer_time_calendar_id = calendars[BUFFER_TIME_CALENDAR]
+    buffer_time_calendar_events_result = (
+        service.events()
+        .list(
+            calendarId=buffer_time_calendar_id,
+            timeMin=timeMin,
+            timeMax=timeMax,
+            singleEvents=True,
+            orderBy="startTime",
+        )
+        .execute()
+    )
+    buffer_time_events = buffer_time_calendar_events_result.get("items", [])
+
+    event_to_buffer_time_event = dict()
+    for event in buffer_time_events:
+        for line in event["description"].split("\n"):
+            if line.startswith(ID_PREFIX):
+                event_to_buffer_time_event[line.split(": ")[1]] = event
+
     with open("key.txt") as f:
         google_maps_key = f.read()
 
@@ -50,16 +78,12 @@ def main():
         if calendar_name not in CALENDAR_WATCH_LIST:
             continue
 
-        start = datetime.datetime.utcnow()
         events_result = (
             service.events()
             .list(
                 calendarId=calendars[calendar_name],
-                timeMin=start.isoformat() + "Z",
-                timeMax=(
-                    start + datetime.timedelta(days=13 - start.weekday())
-                ).isoformat()
-                + "Z",
+                timeMin=timeMin,
+                timeMax=timeMax,
                 maxResults=5,
                 singleEvents=True,
                 orderBy="startTime",
@@ -74,6 +98,9 @@ def main():
         # get last location
         origins = ["Radmanovačka ul. 6f, 10000, Zagreb"]
         for event in events:
+            if event["id"] in event_to_buffer_time_event:
+                continue
+
             start_time = event["start"].get("dateTime")
             tz = pytz.timezone(event["start"].get("timeZone"))
             if start_time is None or tz is None:
@@ -155,7 +182,6 @@ def list_calendars(service):
         for calendar in calendar_list["items"]:
             # name = calendar.get("summaryOverride", calendar.get("summary"))
             name = calendar.get("summary")
-            id_ = calendar.get("id")
             calendars[name] = calendar.get("id")
         page_token = calendar_list.get("nextPageToken")
         if not page_token:
