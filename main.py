@@ -11,10 +11,9 @@ from google.oauth2.credentials import Credentials
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 BUFFER_TIME_CALENDAR = "Buffer time"
 ID_PREFIX = "Tied to event: "
-PREFERRED_TRANSPORT = "DRIVING"
-# TRANSPORT_MODES = ["DRIVING", "WALKING", "BICYCLING", "TRANSIT"]
-TRANSPORTS = ["driving"]
-EMOJI = {"driving": "🚗", "WALKING": "🚶", "BICYCLING": "🚴", "TRANSIT": "🚆"}
+PREFERRED_TRANSPORT = "driving"
+TRANSPORTS = ["driving", "walking", "bicycling", "transit"]
+EMOJI = {"driving": "🚗", "walking": "🚶", "bicycling": "🚴", "transit": "🚆"}
 
 
 def main():
@@ -70,18 +69,15 @@ def main():
         buffers[main_event_id] = event
 
     # Call the Calendar API
-    now = (
-        datetime.datetime.utcnow().isoformat() + "Z"
-    )  # 'Z' indicates UTC time
     print("Getting the upcoming 10 events")
-    # start = datetime.date.today()
-    # end = start + datetime.timedaelta(days=13-start.weekday())
+    start = datetime.datetime.utcnow()
     events_result = (
         service.events()
         .list(
             calendarId="primary",
-            timeMin=now,
-            maxResults=10,
+            timeMin=start.isoformat() + "Z",
+            timeMax=(start + datetime.timedelta(days=13-start.weekday())).isoformat() + "Z",
+            maxResults=5,
             singleEvents=True,
             orderBy="startTime",
         )
@@ -122,7 +118,10 @@ def main():
                 mode=transport,
                 arrival_time=start_time,
             )
-            duration = distance_matrix["rows"][0]["elements"][0]["duration"]
+            duration = distance_matrix["rows"][0]["elements"][0].get("duration")
+            if duration is None:
+                continue
+
             duration_value = duration["value"]
             duration_text = duration["text"]
             description_list.append(
@@ -130,7 +129,8 @@ def main():
             )
 
             if transport == PREFERRED_TRANSPORT:
-                summary = description_list[-1]
+                final_summary = description_list[-1]
+                final_duration_value = duration_value
                 print(f"transport: {transport}")
                 description_list[-1] = "[x] " + description_list[-1]
             else:
@@ -143,11 +143,14 @@ def main():
         create_calendar_event(
             service=service,
             buffer_time_calendar_id=calendars[BUFFER_TIME_CALENDAR],
-            summary=summary,
+            summary=final_summary,
             description=description,
-            start_time=datetime.datetime.fromtimestamp(start_time),
-            end_time=datetime.datetime.fromtimestamp(start_time + duration_value),
+            start_time=datetime.datetime.fromtimestamp(
+                start_time - final_duration_value
+            ),
+            end_time=datetime.datetime.fromtimestamp(start_time),
             recurrence="",
+            timezone=event["start"]["timeZone"],
         )
 
 
@@ -161,8 +164,8 @@ def list_calendars(service):
             service.calendarList().list(pageToken=page_token).execute()
         )
         for calendar in calendar_list["items"]:
-            name = calendar.get("summaryOverride", calendar.get("summary"))
-            id_ = calendar.get("id")
+            # name = calendar.get("summaryOverride", calendar.get("summary"))
+            name = calendar.get("summary")
             calendars[name] = calendar.get("id")
         page_token = calendar_list.get("nextPageToken")
         if not page_token:
@@ -186,12 +189,16 @@ def create_calendar_event(
     description,
     start_time,
     end_time,
+    timezone,
     recurrence,
 ):
-    start = {"dateTime": start_time}
+    start = {
+        "dateTime": start_time.isoformat(),
+        "timeZone": timezone,
+    }
     end = {
-        "dateTime": end_time,
-        # "timeZone": "America/Los_Angeles",
+        "dateTime": end_time.isoformat(),
+        "timeZone": timezone,
     }
     buffer_time_event = {
         "summary": summary,
@@ -201,9 +208,10 @@ def create_calendar_event(
         "end": end,
         # "recurrence": recurrence,
     }
-    print('hello')
     buffer_time_event = (
-        service.events().insert(calendarId=calendar_id, body=event).execute()
+        service.events()
+        .insert(calendarId=buffer_time_calendar_id, body=buffer_time_event)
+        .execute()
     )
     print("Event created: %s" % (buffer_time_event.get("htmlLink")))
 
