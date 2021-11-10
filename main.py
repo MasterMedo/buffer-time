@@ -40,18 +40,15 @@ def main():
         calendars[BUFFER_TIME_CALENDAR] = create_buffer_time_calendar(service)
 
     # Call the Calendar API
-    now = (
-        datetime.datetime.utcnow().isoformat() + "Z"
-    )  # 'Z' indicates UTC time
     print("Getting the upcoming 10 events")
-    # start = datetime.date.today()
-    # end = start + datetime.timedaelta(days=13-start.weekday())
+    start = datetime.datetime.utcnow()
     events_result = (
         service.events()
         .list(
             calendarId="primary",
-            timeMin=now,
-            maxResults=10,
+            timeMin=start.isoformat() + "Z",
+            timeMax=(start + datetime.timedelta(days=13-start.weekday())).isoformat() + "Z",
+            maxResults=50,
             singleEvents=True,
             orderBy="startTime",
         )
@@ -126,7 +123,6 @@ def main():
             recurrence="",
             timezone=event["start"]["timeZone"],
         )
-        break
 
 
 def list_calendars(service):
@@ -139,7 +135,8 @@ def list_calendars(service):
             service.calendarList().list(pageToken=page_token).execute()
         )
         for calendar in calendar_list["items"]:
-            name = calendar.get("summaryOverride", calendar.get("summary"))
+            # name = calendar.get("summaryOverride", calendar.get("summary"))
+            name = calendar.get("summary")
             id_ = calendar.get("id")
             calendars[name] = calendar.get("id")
         page_token = calendar_list.get("nextPageToken")
