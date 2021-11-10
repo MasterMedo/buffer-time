@@ -10,6 +10,7 @@ from google.oauth2.credentials import Credentials
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 BUFFER_TIME_CALENDAR = "Buffer time"
+ID_PREFIX = "Tied to event: "
 PREFERRED_TRANSPORT = "DRIVING"
 # TRANSPORT_MODES = ["DRIVING", "WALKING", "BICYCLING", "TRANSIT"]
 TRANSPORTS = ["driving"]
@@ -39,6 +40,34 @@ def main():
     calendars = list_calendars(service)
     if BUFFER_TIME_CALENDAR not in calendars:
         calendars[BUFFER_TIME_CALENDAR] = create_buffer_time_calendar(service)
+
+    # get already created buffer events linked to main events
+    start = datetime.datetime.now().isoformat() + "Z"
+    end = start + datetime.timedaelta(days=13-start.weekday())
+    end = end.isoformat() + "Z"
+
+    buffer_id = calendars[BUFFER_TIME_CALENDAR]["id"]
+    b_events_result = (
+        service.events()
+        .list(
+            calendarId=buffer_id,
+            timeMin=start,
+            timeMax=end,
+            singleEvents=True,
+            orderBy="startTime",
+        )
+        .execute()
+    )
+    b_events = b_events_result.get("items", [])
+
+    buffers = dict()
+    for event in b_events:
+        main_event_id = [
+            line.split(': ')[1]
+            for line in event["description"].split("\n")
+            if line.startswith(ID_PREFIX)
+        ][0]
+        buffers[main_event_id] = event
 
     # Call the Calendar API
     now = (
@@ -108,7 +137,7 @@ def main():
                 description_list[-1] = "[ ] " + description_list[-1]
 
         event_id = event["id"]
-        description_list.append(f"Tied to event: {event_id}")
+        description_list.append(f"{ID_PREFIX}{event_id}")
         description = "\n".join(description_list)
 
         create_calendar_event(
