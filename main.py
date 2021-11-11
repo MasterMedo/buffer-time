@@ -1,7 +1,6 @@
 import datetime
 import os.path
 import googlemaps
-import pytz
 
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -37,18 +36,19 @@ def main():
 
     service = build("calendar", "v3", credentials=creds)
 
-    # get all calendars and create calendar BUFFER_TIME_CALENDAR
     calendars = list_calendars(service)
     if BUFFER_TIME_CALENDAR not in calendars:
         calendars[BUFFER_TIME_CALENDAR] = create_buffer_time_calendar(service)
 
-    # has to be a day before for buffer time events because the current event might have already started but the buffer time event for it has already passed
+    # TODO: `now` has to be a day before for buffer time events because the
+    # current event might have already started but the buffer time event for it
+    # has already passed
     now = datetime.datetime.utcnow()
     timeMin = now.isoformat() + "Z"
     timeMax = (
         now + datetime.timedelta(days=13 - now.weekday())
     ).isoformat() + "Z"
-    # get already created buffer events linked to main events
+
     buffer_time_calendar_id = calendars[BUFFER_TIME_CALENDAR]
     buffer_time_calendar_events_result = (
         service.events()
@@ -95,15 +95,17 @@ def main():
         if not events:
             print("No upcoming events found.")
             continue
-        # get last location
+
+        # TODO: get last location
         origins = ["Radmanovačka ul. 6f, 10000, Zagreb"]
         for event in events:
             if event["id"] in event_to_buffer_time_event:
                 continue
 
+            # ATTENTION: by ignoring event["start"].get("date"), we
+            # intentionally skip full day events like birthdays
             start_time = event["start"].get("dateTime")
-            tz = pytz.timezone(event["start"].get("timeZone"))
-            if start_time is None or tz is None:
+            if start_time is None:
                 print("event has no start time")
                 continue
 
@@ -114,6 +116,7 @@ def main():
                 ).total_seconds()
             else:
                 start_time = start_time.timestamp()
+
             # TODO: convert start time to integer
             location = event.get("location")
             if location is None:
@@ -154,7 +157,7 @@ def main():
                     description_list[-1] = "[ ] " + description_list[-1]
 
             event_id = event["id"]
-            description_list.append(f"Tied to event: {event_id}")
+            description_list.append(ID_PREFIX + event_id)
             description = "\n".join(description_list)
             create_calendar_event(
                 service=service,
