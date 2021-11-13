@@ -144,10 +144,19 @@ def main():
                     continue
 
                 duration_value = duration["value"]
-                duration_text = duration["text"]
-                description_list.append(
-                    EMOJI[transport] + " " + transport + " " + duration_text
-                )
+                minutes, seconds = divmod(duration["value"], 60)
+                hours, minutes = divmod(minutes, 60)
+                if hours > 6:
+                    # this event is going to keep recomputing distance matrix
+                    continue
+
+                title = f"{EMOJI[transport]} {transport} "
+                if hours:
+                    title = f"{hours} hours"
+                if minutes:
+                    title += f"{minutes} minutes"
+
+                description_list.append(title)
 
                 if transport == PREFERRED_TRANSPORT:
                     final_summary = description_list[-1]

@@ -20,20 +20,21 @@ Settings:
 
 questions:
 - What if location invalid, e.g. number of hotel room?
-  - [ ] Use geocoder status to determine if the location is valid. If location is invalid don't create a Buffer time event for it, also ignore all locations farther than 6h.
+  - [ ] Use geocoder status to determine if the location is valid. If location is invalid don't create a Buffer time event for it
+  - [x] Ignore all locations farther than 6h.
 - What if the user updates the Buffer time event?
   - [ ] If the user updates the duration of the event, the application doesn't handle the duration of the event anymore, except if the user clicks on the link in the description of the buffer time event to adjust the duration to a travel time mode suggestion.
   - [ ] TODO (DO WE HANDLE EVENTS BUFFER TIME OR LOCATION BUFFER TIME) suggestion if the user changes the time of the event, and the tied event start time doesn't match the end time of the buffer event,
 - How are work events that the user attends virtually (via google meet) handled, if they have the location of the office?
   - A buffer time event will be created and the user should manually delete it.
 - How are events that the user hasn't created handled?
-  - Only track events the user has responed to with yes/maybe.
+  - [ ] Only track events the user has responed to with yes/maybe.
 - Can I choose transit type?
-  - Not yet, if there is enough interest it will be implemented.
+  - [ ] Not yet, if there is enough interest it will be implemented.
 - What is the timedelta since last event with a location to assume the user is still at the same location?
-  - 4 hours, it cannot be changed.
+  - [ ] 4 hours, it cannot be changed.
 - How are deleted Buffer time events handled?
-  - They do not get recreated until the user manually deletes the buffer\_time\_event\_id from the main event description.
+  - [ ] They do not get recreated until the user manually deletes the buffer\_time\_event\_id from the main event description.
   - NOTICE: I don't want to store any data in user events that is visible to the user, maybe we can found a workaround to store it somewhere hidden.
 - Do you support recurring events?
   - No. When a user has recurring events, Buffer time events that tie to those events aren't recurring. This is because handling recurring events is very complicated if the recurring events change or keep changing, especially with "this and following events" changes.
@@ -45,4 +46,4 @@ questions:
  - No, then there would be no point in creating buffer time events.
 
 Issues:
-- Event duration doesn't correspond to the event title (`duration['value'] != duration['text']`).
+- [x] Event duration doesn't correspond to the event title (`duration['value'] != duration['text']`).
