@@ -84,7 +84,7 @@ def main():
                 calendarId=calendars[calendar_name],
                 timeMin=timeMin,
                 timeMax=timeMax,
-                maxResults=5,
+                maxResults=50,
                 singleEvents=True,
                 orderBy="startTime",
             )
@@ -125,7 +125,7 @@ def main():
 
             description_list = []
             # description.append(
-            #     f"Commute time from {old_location} to {new_location}."
+            #     f"Commute time\nfrom {old_location}\nto {new_location}."
             # )
 
             for transport in TRANSPORTS:
