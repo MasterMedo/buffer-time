@@ -25,6 +25,7 @@ CALENDAR_WATCH_LIST = ["Events and activities", "Family"]
 TIME_DELTA = 4 * 60 * 60  # 4 hours
 # Home address, the address where the user spends their nights.
 BASE_LOCATION = "Radmanovačka ul. 6f, 10000, Zagreb"
+MAX_BUFFER_TIME_EVENT_DURATION = 6  # 6 hours
 
 
 def main():
@@ -147,6 +148,8 @@ def main():
                 f"To: {event_location}"
             ]
 
+            final_summary = None
+            final_duration = None
             for transport in TRANSPORTS:
                 duration = get_duration(
                     google_maps_client=google_maps_client,
@@ -161,7 +164,7 @@ def main():
 
                 minutes, seconds = divmod(duration, 60)
                 hours, minutes = divmod(minutes, 60)
-                if hours > 6:
+                if hours > MAX_BUFFER_TIME_EVENT_DURATION:
                     # this event is going to keep recomputing distance matrix
                     continue
 
@@ -179,6 +182,9 @@ def main():
                     description_list[-1] = "[x] " + description_list[-1]
                 else:
                     description_list[-1] = "[ ] " + description_list[-1]
+
+            if final_summary is None:
+                continue
 
             event_id = event["id"]
             description_list.append(EVENT_DESCRIPTION_ID_PREFIX + event_id)

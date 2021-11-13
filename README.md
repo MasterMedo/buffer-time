@@ -20,7 +20,7 @@ Settings:
 
 questions:
 - What if location invalid, e.g. number of hotel room?
-  - [ ] Use geocoder status to determine if the location is valid. If location is invalid don't create a Buffer time event for it
+  - [x] ~Use geocoder status to determine if the location is valid. If location is invalid don't create a Buffer time event for it~ The `duration` will be `None` for the distance matrix call if the location is invalid.
   - [x] Ignore all locations farther than 6h.
 - What if the user updates the Buffer time event?
   - [ ] If the user updates the duration of the event, the application doesn't handle the duration of the event anymore, except if the user clicks on the link in the description of the buffer time event to adjust the duration to a travel time mode suggestion.
