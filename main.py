@@ -19,7 +19,11 @@ PREFERRED_TRANSPORT = "driving"
 TRANSPORTS = ["driving", "walking", "bicycling", "transit"]
 EMOJI = {"driving": "🚗", "walking": "🚶", "bicycling": "🚴", "transit": "🚆"}
 # Calendars that are buffer time events are created for.
-CALENDAR_WATCH_LIST = ["Events and activities", "Family"]
+CALENDAR_WATCH_LIST = [
+    "Events and activities",
+    "Family",
+    "mislav.vuletic@memgraph.io",
+]
 # Amount of time since last having a location to be considered the user
 # went to the BASE_LOCATION instead of being at the last event location
 TIME_DELTA = 4 * 60 * 60  # 4 hours
@@ -126,6 +130,19 @@ def main():
                     full_day_event_location = location
                 continue
 
+            if not event.get("organizer", {}).get("self"):
+                status = next(
+                    (
+                        a.get("responseStatus")
+                        for a in event.get("attendees", [])
+                        if a.get("self")
+                    ),
+                    None,
+                )
+                # needsAction, tentative, accepted
+                if status not in ["accepted", "tentative"]:
+                    continue
+
             start_time = date_time_string_to_seconds(start_time)
 
             event_location = event.get("location")
@@ -145,7 +162,7 @@ def main():
             description_list = [
                 f"Commute time",
                 f"From: {last_location}",
-                f"To: {event_location}"
+                f"To: {event_location}",
             ]
 
             final_summary = None

@@ -28,11 +28,11 @@ questions:
 - How are work events that the user attends virtually (via google meet) handled, if they have the location of the office?
   - A buffer time event will be created and the user should manually delete it.
 - How are events that the user hasn't created handled?
-  - [ ] Only track events the user has responed to with yes/maybe.
+  - [x] Only track events the user has responed to with yes/maybe (tentative, accepted).
 - Can I choose transit type?
-  - [ ] Not yet, if there is enough interest it will be implemented.
+  - Not yet, if there is enough interest it will be implemented.
 - What is the timedelta since last event with a location to assume the user is still at the same location?
-  - [ ] 4 hours, it cannot be changed.
+  - [x] 4 hours, it cannot be changed.
 - How are deleted Buffer time events handled?
   - [ ] They do not get recreated until the user manually deletes the buffer\_time\_event\_id from the main event description.
   - NOTICE: I don't want to store any data in user events that is visible to the user, maybe we can found a workaround to store it somewhere hidden.
