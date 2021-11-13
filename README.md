@@ -47,3 +47,7 @@ questions:
 
 Issues:
 - [x] Event duration doesn't correspond to the event title (`duration['value'] != duration['text']`).
+
+
+Proposition of a solution on editing buffer time events and other people not seeing your buffer time calendar:
+Let's have a "mirror" function, that would copy the buffer time event to his main calendar (or work calendar), and the buffer time application will delete and recreate that event whenever the buffer time event is changed, and the user gets the extra benefit of being able to edit the mirrored events in his calendar for extra control like moving it 10 minutes before, increasing duration etc.
