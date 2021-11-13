@@ -15,6 +15,16 @@ PREFERRED_TRANSPORT = "driving"
 TRANSPORTS = ["driving", "walking", "bicycling", "transit"]
 EMOJI = {"driving": "🚗", "walking": "🚶", "bicycling": "🚴", "transit": "🚆"}
 CALENDAR_WATCH_LIST = ["Events and activities", "Family"]
+TIME_DELTA = 4  # TODO 4 hours
+
+HOME_ADDRESS = "Radmanovačka ul. 6f, 10000, Zagreb"
+
+
+def get_location_from(prev_event_with_location, start_time):
+    if start_time - prev_event_with_location["end"]["dateTime"] > TIME_DELTA:
+        return HOME_ADDRESS
+
+    return prev_event_with_location["location"]
 
 
 def main():
@@ -74,6 +84,9 @@ def main():
 
     google_maps_client = googlemaps.Client(google_maps_key)
 
+    # TODO don't iterate over calendars because we need the information of the
+    # previous event of the current one (which can be in a different calendar).
+    # Instead load all calendars at once and use pointers to get the events in time order.
     for calendar_name in calendars:
         if calendar_name not in CALENDAR_WATCH_LIST:
             continue
@@ -82,7 +95,7 @@ def main():
             service.events()
             .list(
                 calendarId=calendars[calendar_name],
-                timeMin=timeMin,
+                timeMin=timeMin - TIME_DELTA,
                 timeMax=timeMax,
                 maxResults=50,
                 singleEvents=True,
@@ -96,9 +109,20 @@ def main():
             print("No upcoming events found.")
             continue
 
-        # TODO: get last location
-        origins = ["Radmanovačka ul. 6f, 10000, Zagreb"]
-        for event in events:
+        event_i = 0
+        last_event_with_location = None
+        while event_i < len(events):
+            if not events[event_i]["start"].get("dateTime"):
+                event_i += 1
+                continue
+            if events[event_i]["start"]["dateTime"] >= now:
+                break
+            if events[event_i].get("location"):
+                last_event_with_location = events[event_i]
+            event_i += 1
+
+        for event in events[event_i:]:
+
             if event["id"] in event_to_buffer_time_event:
                 continue
 
@@ -118,9 +142,13 @@ def main():
                 start_time = start_time.timestamp()
 
             # TODO: convert start time to integer
-            location = event.get("location")
-            if location is None:
+            location_from = get_location_from(last_event_with_location, event["start"]["startTime"])
+            location_to = event.get("location")
+            if location_to is None:
                 # print("event has no location")
+                continue
+            last_event_with_location = event
+            if location_to == location_from:
                 continue
 
             description_list = []
@@ -132,8 +160,8 @@ def main():
                 # catch all exceptions here so another transport
                 # method can be tried
                 distance_matrix = google_maps_client.distance_matrix(
-                    origins=origins,
-                    destinations=[location],
+                    origins=[location_from],
+                    destinations=[location_to],
                     mode=transport,
                     arrival_time=start_time,
                 )
