@@ -2,25 +2,24 @@ const BUFFER_TIME_CALENDAR = "Buffer time";
 const EVENT_DESCRIPTION_ID_PREFIX = "Tied to event: ";
 const PREFERRED_TRANSPORT = "driving";
 const TRANSPORTS = ["driving", "walking", "bicycling", "transit"];
-const EMOJI = {"driving": "🚗", "walking": "🚶", "bicycling": "🚴", "transit": "🚆"};
+const EMOJI = { driving: "🚗", walking: "🚶", bicycling: "🚴", transit: "🚆" };
 // Calendars that are buffer time events are created for.
 const CALENDAR_WATCH_LIST = [
-    "Events and activities",
-    "Family",
-    "mislav.vuletic@memgraph.io",
+  "Events and activities",
+  "Family",
+  "mislav.vuletic@memgraph.io",
 ];
 // Amount of time since last having a location to be considered the user
 // went to the BASE_LOCATION instead of being at the last event location
-const TIME_DELTA = 4 * 60 * 60;  // 4 hours
+const TIME_DELTA = 4 * 60 * 60; // 4 hours
 // Home address, the address where the user spends their nights.
 const BASE_LOCATION = "Radmanovačka ul. 6f, 10000, Zagreb";
-const MAX_BUFFER_TIME_EVENT_DURATION = 6;  // 6 hours
-
+const MAX_BUFFER_TIME_EVENT_DURATION = 6; // 6 hours
 
 function main() {
   const service = authenticate_and_get_service();
   const calendars = get_user_calendars(service);
-  if !calendars.includes(BUFFER_TIME_CALENDAR) {
+  if (!calendars.includes(BUFFER_TIME_CALENDAR)) {
     calendars[BUFFER_TIME_CALENDAR] = create_buffer_time_calendar(service);
   }
 
@@ -28,7 +27,7 @@ function main() {
   // current event might have already started but the buffer time event for it
   // has already passed
 
-  // TODO: do we need to add Z?
+  // js TODO: do we need to add Z?
   const now = Date.now();
   const time_min = now.toISOString();
   let time_max = new Date(now);
@@ -36,10 +35,10 @@ function main() {
   time_max = time_max.toISOString();
 
   let buffer_time_events = get_calendar_events(
-    service=service,
-    calendar_id=calendars[BUFFER_TIME_CALENDAR].id,
-    time_min=time_min,
-    time_max=time_max,
+    (service = service),
+    (calendar_id = calendars[BUFFER_TIME_CALENDAR].id),
+    (time_min = time_min),
+    (time_max = time_max)
   );
 
   let event_to_buffer_time_event = {};
@@ -52,7 +51,7 @@ function main() {
   }
 
   // js TODO write in js
-  const google_maps_client = googlemaps.Client(google_maps_key)
+  const google_maps_client = googlemaps.Client(google_maps_key);
 
   // TODO don't iterate over calendars because we need the information of the
   // previous event of the current one (which can be in a different calendar).
@@ -64,10 +63,10 @@ function main() {
     }
 
     let events = get_calendar_events(
-      service=service,
-      calendar_id=calendars[calendar_name].id,
-      time_min=time_min,
-      time_max=time_max,
+      (service = service),
+      (calendar_id = calendars[calendar_name].id),
+      (time_min = time_min),
+      (time_max = time_max)
     );
 
     if (!events.length) {
@@ -75,11 +74,11 @@ function main() {
       continue;
     }
 
-    events = iter(events);  // js TODO js doesn't have iter
+    events = iter(events); // js TODO js doesn't have iter
     let last_location;
     let last_location_time = 0;
     let full_day_event_location;
-    let work_location;  // TODO: get from working hours
+    let work_location; // TODO: get from working hours
     for (const event in events) {
       if (!!event.start?.dateTime) {
         full_day_event_location = event?.location;
@@ -90,8 +89,8 @@ function main() {
       if (seconds >= now) {
         break;
       } else if (!!event?.location) {
-          last_location = event.location;
-          last_location_time = seconds;
+        last_location = event.location;
+        last_location_time = seconds;
       }
     }
 
@@ -137,9 +136,9 @@ function main() {
 
     // TODO: convert start time to integer
     const last_location =
-      (start_time - last_location_time < TIME_DELTA)
-      ? last_location
-      : full_day_event_location || work_location || BASE_LOCATION;
+      start_time - last_location_time < TIME_DELTA
+        ? last_location
+        : full_day_event_location || work_location || BASE_LOCATION;
 
     if (event_location === last_location) {
       continue;
@@ -149,17 +148,17 @@ function main() {
       "Commute time",
       "From: ${last_location}",
       "To: ${event_location}",
-    ]
+    ];
 
     let final_summary;
     let final_duration;
     for (const transport in TRANSPORTS) {
       const duration = get_duration(
-          google_maps_client=google_maps_client,
-          origin=last_location,
-          destination=event_location,
-          mode=transport,
-          arrival_time=start_time,
+        (google_maps_client = google_maps_client),
+        (origin = last_location),
+        (destination = event_location),
+        (mode = transport),
+        (arrival_time = start_time)
       );
 
       if (!duration) {
@@ -174,12 +173,12 @@ function main() {
         continue;
       }
 
-      let title = "${EMOJI[transport]} ${transport} "
+      let title = "${EMOJI[transport]} ${transport} ";
       if (hours) {
         title += "${hours} hours";
       }
       if (minutes) {
-        title += f"{minutes} minutes";
+        title += "${minutes} minutes";
       }
 
       description_list.push(title);
@@ -194,22 +193,22 @@ function main() {
     }
 
     if (!final_summary) {
-        continue;
+      continue;
     }
 
     const event_id = event.id;
     description_list.push(EVENT_DESCRIPTION_ID_PREFIX + event_id);
     description = description_list.join("\n");
     create_calendar_event(
-      service=service,
-      buffer_time_calendar_id=calendars[BUFFER_TIME_CALENDAR]/id,
-      summary=final_summary,
-      description=description,
-      start_time=start_time - final_duration,
-      end_time=start_time,
-      recurrence="",
-      timezone=event.start.timeZone,
-    )
+      (service = service),
+      (buffer_time_calendar_id = calendars[BUFFER_TIME_CALENDAR] / id),
+      (summary = final_summary),
+      (description = description),
+      (start_time = start_time - final_duration),
+      (end_time = start_time),
+      (recurrence = ""),
+      (timezone = event.start.timeZone)
+    );
 
     last_location = event_location;
   }
