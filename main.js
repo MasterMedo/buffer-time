@@ -224,3 +224,145 @@ function main() {
     }
   }
 }
+
+function get_duration({
+  google_maps_client,
+  origin,
+  destination,
+  mode,
+  arrival_time,
+} = {}) {
+  // catch all exceptions here so another transport
+  // method can be tried
+  const distance_matrix = google_maps_client.distance_matrix({
+    origins: [origin],
+    destinations: [destination],
+    mode: mode,
+    arrival_time: arrival_time,
+  });
+  const duration = distance_matrix.rows[0].elements[0]?.duration;
+  return duration?.value;
+}
+
+// js TODO entire function
+function authenticate_and_get_service() {
+  let creds;
+  if (os.path.exists("token.json")) {
+    creds = Credentials.from_authorized_user_file("token.json", SCOPES);
+  }
+
+  if (!creds || !creds.valid) {
+    if (creds && creds.expired && creds.refresh_token) {
+      creds.refresh(Request());
+    } else {
+      flow = InstalledAppFlow.from_client_secrets_file(
+        "credentials.json",
+        SCOPES
+      );
+      creds = flow.run_local_server({ port: 0 });
+    }
+
+    // with open("token.json", "w") as token {
+    //     token.write(creds.to_json());
+    // }
+  }
+
+  service = build("calendar", "v3", (credentials = creds));
+  return service;
+}
+
+function get_calendar_events(service, calendar_id, time_min, time_max) {
+  const calendar_events_result = service
+    .events()
+    .list({
+      calendarId: calendar_id,
+      timeMin: time_min,
+      timeMax: time_max,
+      maxResults: 5,
+      singleEvents: True,
+      orderBy: "startTime",
+    })
+    .execute();
+  const events = calendar_events_result?.items;
+  return events || [];
+}
+
+function get_user_calendars(service) {
+  /*
+    Returns a dictionary of all calendars the user has access to.
+    The key in the dictionary represents the summary of the calendar.
+    The value in the dictionary represents the calendar object.
+    */
+  let calendars = {};
+  let page_token;
+  while (true) {
+    const calendar_list = service
+      .calendarList()
+      .list({ pageToken: page_token })
+      .execute();
+    for (const calendar of calendar_list.items) {
+      // for choosing which calendar should be on the watch list you have
+      // to use `summaryOverride` (user edited original summary)
+      // for looking up BUFFER_TIME_CALENDAR in calendars you have to use
+      // `summary` because user might've changed the summary
+      // name = calendar?.summaryOverride || calendar?.summary
+      const name = calendar?.summary;
+      if (name) {
+        calendars = { ...calendars, [name]: calendar };
+      }
+    }
+
+    page_token = calendar_list?.nextPageToken;
+    if (!page_token) {
+      break;
+    }
+  }
+
+  return calendars;
+}
+
+function create_buffer_time_calendar(service) {
+  const calendar = {
+    summary: BUFFER_TIME_CALENDAR,
+  };
+  // TODO if this fails the user should be notified and app should exit
+  const created_calendar = service
+    .calendars()
+    .insert({ body: calendar })
+    .execute();
+  return created_calendar;
+}
+
+function create_calendar_event({
+  service,
+  buffer_time_calendar_id,
+  summary,
+  description,
+  start_time,
+  end_time,
+  timezone,
+  recurrence,
+} = {}) {
+  const start = {
+    dateTime: start_time.toISOString(),
+    timeZone: timezone,
+  };
+  const end = {
+    dateTime: end_time.toISOString(),
+    timeZone: timezone,
+  };
+  const buffer_time_event = {
+    summary: summary,
+    // "location: "",
+    description: description,
+    start: start,
+    end: end,
+    // recurrence: recurrence,
+  };
+  const buffer_time_event = service
+    .events()
+    .insert({ calendarId: buffer_time_calendar_id, body: buffer_time_event })
+    .execute();
+
+  console.log("Event created{ %s" % buffer_time_event.get("htmlLink"));
+}
