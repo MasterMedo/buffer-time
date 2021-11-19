@@ -2,6 +2,8 @@ const BUFFER_TIME_CALENDAR = "Buffer time";
 const EVENT_DESCRIPTION_ID_PREFIX = "Tied to event: ";
 const PREFERRED_TRANSPORT = "driving";
 const TRANSPORTS = ["driving", "walking", "bicycling", "transit"];
+// possible values: [needsAction, tentative, accepted]
+const EVENT_ACCEPTED_OR_MAYBE = ["accepted", "tentative"]
 const EMOJI = { driving: "🚗", walking: "🚶", bicycling: "🚴", transit: "🚆" };
 // Calendars that are buffer time events are created for.
 const CALENDAR_WATCH_LIST = [
@@ -11,59 +13,33 @@ const CALENDAR_WATCH_LIST = [
 ];
 // Amount of time since last having a location to be considered the user
 // went to the BASE_LOCATION instead of being at the last event location
-const TIME_DELTA = 4 * 60 * 60 * 1000; // 4 hours represented in miliseconds
+const TIME_DELTA_SECONDS = 4 * 60 * 60;
 // Home address, the address where the user spends their nights.
 const BASE_LOCATION = "Radmanovačka ul. 6f, 10000, Zagreb";
-const MAX_BUFFER_TIME_EVENT_DURATION = 6; // 6 hours
-const FIRST_DAY_OF_WEEK = "mon";
-const DAY_OF_WEEK_OFFSET = {
-  mon: 6,
-  tue: 5,
-  wed: 4,
-  thu: 3,
-  fri: 2,
-  sat: 1,
-  sun: 0,
-};
-
-function _day_num(date) {
-  return (date.getDay() + DAY_OF_WEEK_OFFSET[FIRST_DAY_OF_WEEK]) % 7;
-}
+const MAX_BUFFER_TIME_EVENT_SECONDS = 6 * 3600;
 
 function main() {
-  const service = authenticate_and_get_service();
-  const calendars = get_user_calendars(service);
-  if (!calendars.includes(BUFFER_TIME_CALENDAR)) {
-    calendars[BUFFER_TIME_CALENDAR] = create_buffer_time_calendar(service);
+  // get buffer time calendar
+  var buffer_time_calendar = null;
+  var buffer_time_calendars = getOwnedCalendarsByName(BUFFER_TIME_CALENDAR);
+  if (buffer_time_calendars.length === 0) {
+    buffer_time_calendar = CalendarApp.createCalendar(BUFFER_TIME_CALENDAR);
+  } else {
+    // assume user has only one buffer time calendar
+    buffer_time_calendar = buffer_time_calendars[0];
   }
 
-  const now = new Date();
-  let time_min = new Date(now);
-  time_min.setDate(time_min.getDate() - 1); // TODO: time min set to one day earlier, test to see if this breaks something
-  time_min = time_min.toISOString();
-  let time_max = new Date(now);
-  time_max.setDate(time_max.getDate() + 13 - _day_num(now)); // TODO: set hours mins and seconds to 0 and day to next day? (we want the whole day)
-  time_max = time_max.toISOString();
+  var primary_calendar = CalendarApp.getDefaultCalendar();
 
-  let buffer_time_events = get_calendar_events({
-    // TODO: check how js function call works, object as input or?
-    service: service,
-    calendar_id: calendars[BUFFER_TIME_CALENDAR].id,
-    time_min: time_min,
-    time_max: time_max,
-  });
+  // assume all calendars have the same timezone as the default calendar
+  const time_zone = primary_calendar.getTimeZone();
+  const today = new Date();
+  // google script doesn't provide a method to get first day of the week
+  const week_day = Utilities.formatDate(today, time_zone, "u");
+  const yesterday = new Date(today - 864e5).toISOString(); // day before
+  const two_weeks = new Date(today + 846e5 * (14 - week_day)).toISOString();
 
-  let event_to_buffer_time_event = {};
-  for (const event of buffer_time_events) {
-    for (const line of event.description.split("\n")) {
-      if (line.startsWith(EVENT_DESCRIPTION_ID_PREFIX)) {
-        event_to_buffer_time_event[line.split(": ")[1]] = event;
-      }
-    }
-  }
-
-  // js TODO write in js
-  const google_maps_client = googlemaps.Client(google_maps_key);
+  var buffer_time_events = buffer_time_calendar.getEvents(yesterday, two_weeks);
 
   // TODO don't iterate over calendars because we need the information of the
   // previous event of the current one (which can be in a different calendar).
@@ -132,21 +108,20 @@ function main() {
             break;
           }
         }
-        // needsAction, tentative, accepted
-        if (!["accepted", "tentative"].includes(status)) {
+        if (!EVENT_ACCEPTED_OR_MAYBE.includes(status)) {
           continue;
         }
       }
-
-      start_time = new Date(start_time);
 
       const event_location = event?.location;
       if (!!event_location) {
         continue;
       }
 
+      start_time = new Date(start_time);
       const last_location =
-        start_time - last_location_time < TIME_DELTA
+        // jel ovdje start_time sekunda ili date??
+        start_time - last_location_time < TIME_DELTA_SECONDS * 1000
           ? last_location
           : full_day_event_location || work_location || BASE_LOCATION;
 
@@ -162,28 +137,30 @@ function main() {
 
       let final_summary;
       let final_duration;
-      for (const transport of TRANSPORTS) {
-        const duration = get_duration({
-          google_maps_client: google_maps_client,
-          origin: last_location,
-          destination: event_location,
-          mode: transport,
-          arrival_time: start_time.getTime() / 1000, // getTime returns miliseconds, get_duration expects seconds
-        });
+      for (const transport_mode of TRANSPORTS) {
+        // https://developers.google.com/maps/documentation/javascript/directions?authuser=0#Legs
+        var directions_seconds = Maps.newDirectionFinder()
+          .setOrigin(last_location)
+          .setDestination(event_location)
+          .setArrive(start_time.getTime() / 1000)
+          .setMode(transport_mode)
+          .getDirections()
+          .routes[0].legs[0].duration
 
-        if (!duration) {
+        if (!duration_seconds) {
+          continue;
+        }
+
+        if (duration_seconds > MAX_BUFFER_TIME_EVENT_SECONDS) {
+          // this event is going to keep recomputing the travel duration
           continue;
         }
 
         const divmod = (x, y) => [Math.floor(x / y), x % y];
-        const [minutes, seconds] = divmod(duration, 60);
+        const [minutes, seconds] = divmod(duration_seconds, 60);
         const [hours, minutes] = divmod(minutes, 60);
-        if (hours > MAX_BUFFER_TIME_EVENT_DURATION) {
-          // this event is going to keep recomputing distance matrix
-          continue;
-        }
 
-        let title = "${EMOJI[transport]} ${transport} ";
+        let title = "${EMOJI[transport_mode]} ${transport_mode} ";
         if (hours) {
           title += "${hours} hours";
         }
@@ -193,9 +170,9 @@ function main() {
 
         description_list.push(title);
 
-        if (transport === PREFERRED_TRANSPORT) {
+        if (transport_mode === PREFERRED_TRANSPORT) {
           final_summary = description_list[-1];
-          final_duration = duration;
+          final_duration = duration_seconds;
           description_list[-1] = "[x] " + description_list[-1];
         } else {
           description_list[-1] = "[ ] " + description_list[-1];
@@ -225,52 +202,6 @@ function main() {
   }
 }
 
-function get_duration({
-  google_maps_client,
-  origin,
-  destination,
-  mode,
-  arrival_time,
-} = {}) {
-  // catch all exceptions here so another transport
-  // method can be tried
-  const distance_matrix = google_maps_client.distance_matrix({
-    origins: [origin],
-    destinations: [destination],
-    mode: mode,
-    arrival_time: arrival_time,
-  });
-  const duration = distance_matrix.rows[0].elements[0]?.duration;
-  return duration?.value;
-}
-
-// js TODO entire function
-function authenticate_and_get_service() {
-  let creds;
-  if (os.path.exists("token.json")) {
-    creds = Credentials.from_authorized_user_file("token.json", SCOPES);
-  }
-
-  if (!creds || !creds.valid) {
-    if (creds && creds.expired && creds.refresh_token) {
-      creds.refresh(Request());
-    } else {
-      flow = InstalledAppFlow.from_client_secrets_file(
-        "credentials.json",
-        SCOPES
-      );
-      creds = flow.run_local_server({ port: 0 });
-    }
-
-    // with open("token.json", "w") as token {
-    //     token.write(creds.to_json());
-    // }
-  }
-
-  service = build("calendar", "v3", (credentials = creds));
-  return service;
-}
-
 function get_calendar_events(service, calendar_id, time_min, time_max) {
   const calendar_events_result = service
     .events()
@@ -285,52 +216,6 @@ function get_calendar_events(service, calendar_id, time_min, time_max) {
     .execute();
   const events = calendar_events_result?.items;
   return events || [];
-}
-
-function get_user_calendars(service) {
-  /*
-    Returns a dictionary of all calendars the user has access to.
-    The key in the dictionary represents the summary of the calendar.
-    The value in the dictionary represents the calendar object.
-    */
-  let calendars = {};
-  let page_token;
-  while (true) {
-    const calendar_list = service
-      .calendarList()
-      .list({ pageToken: page_token })
-      .execute();
-    for (const calendar of calendar_list.items) {
-      // for choosing which calendar should be on the watch list you have
-      // to use `summaryOverride` (user edited original summary)
-      // for looking up BUFFER_TIME_CALENDAR in calendars you have to use
-      // `summary` because user might've changed the summary
-      // name = calendar?.summaryOverride || calendar?.summary
-      const name = calendar?.summary;
-      if (name) {
-        calendars = { ...calendars, [name]: calendar };
-      }
-    }
-
-    page_token = calendar_list?.nextPageToken;
-    if (!page_token) {
-      break;
-    }
-  }
-
-  return calendars;
-}
-
-function create_buffer_time_calendar(service) {
-  const calendar = {
-    summary: BUFFER_TIME_CALENDAR,
-  };
-  // TODO if this fails the user should be notified and app should exit
-  const created_calendar = service
-    .calendars()
-    .insert({ body: calendar })
-    .execute();
-  return created_calendar;
 }
 
 function create_calendar_event({
