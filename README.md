@@ -1,4 +1,8 @@
 # buffer-time
+"Buffer Time" is a Google Calendar Add-on application that creates travelling events before already existing events.
+It calculates travel time from your current location to the location of your event and creates a calendar entry using the duration of the travel.
+
+# how does it work?
 The Buffer Time events should only be handled by the application and not by the user.
 Trust the application to work properly, set locations of all events in your calendar, so the app can detect where you are at each point in time.
 
@@ -36,6 +40,7 @@ questions:
 - How are deleted Buffer time events handled?
   - [ ] They do not get recreated until the user manually deletes the buffer\_time\_event\_id from the main event description.
   - NOTICE: I don't want to store any data in user events that is visible to the user, maybe we can found a workaround to store it somewhere hidden.
+  - we can have temporary storage which would store the event id that has the corresponding deleted buffer time event, and we can delete that entry once the datetime of NOW passes the starting point of that event. If the user moves the event from history to the future we can again create a buffer time event.
 - Do you support recurring events?
   - No. When a user has recurring events, Buffer time events that tie to those events aren't recurring. This is because handling recurring events is very complicated if the recurring events change or keep changing, especially with "this and following events" changes.
 - How does preferred transport in the description of the Buffer time event work?
@@ -43,7 +48,13 @@ questions:
   - [ ] Upon seeing the preferred transport method has been updated, the application adjusts the duration of the Buffer time event.
   - [ ] Every transport method has a link that sends the event id to our server and the preferred method, the server then edits the Buffer time event with the proper duration for that transport method.
 - Can Buffer time events overlap with main events instead of being before/after?
- - No, then there would be no point in creating buffer time events.
+  - No, then there would be no point in creating buffer time events.
+- Does buffer time collect my data?
+  - No. We don't collect anything, the program runs in the user's browser and doesn't communicate with any external servers.
+- Does my location get stored?
+  - We intend to store user locations somewhere on the user's Google drive. This will help us reduce the cost of the Google Maps api and reduce the cost of our application.
+- Does the application work when I edit my calendar on mobile?
+  - No, the application is a Google Calendar Add-on which currently only supports the web version of the calendar. We hope they will soon extend support to mobile platforms.
 
 Issues:
 - [x] Event duration doesn't correspond to the event title (`duration['value'] != duration['text']`).
@@ -51,3 +62,15 @@ Issues:
 
 Proposition of a solution on editing buffer time events and other people not seeing your buffer time calendar:
 Let's have a "mirror" function, that would copy the buffer time event to his main calendar (or work calendar), and the buffer time application will delete and recreate that event whenever the buffer time event is changed, and the user gets the extra benefit of being able to edit the mirrored events in his calendar for extra control like moving it 10 minutes before, increasing duration etc.
+
+Instead of calling distance matrix for every event, all events should be scanned and only one call made for the distance matrix.
+
+provide on prem solution for free for power users to run their own python script (cron job script, create your own API key and have 200$ monthly for free on distance API).
+
+food for thought / ideas:
+- event.setTag("buffer time", buffer_time_event_id)
+- loom video showing the functionality
+- ScriptCache instead of UserCache
+- settings through homepage
+- onOpen replicate create event make location editable and prominent
+- check if user changed buffer time event
