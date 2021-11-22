@@ -56,16 +56,8 @@ questions:
 - Does the application work when I edit my calendar on mobile?
   - No, the application is a Google Calendar Add-on which currently only supports the web version of the calendar. We hope they will soon extend support to mobile platforms.
 
-Issues:
-- [x] Event duration doesn't correspond to the event title (`duration['value'] != duration['text']`).
-
-
 Proposition of a solution on editing buffer time events and other people not seeing your buffer time calendar:
 Let's have a "mirror" function, that would copy the buffer time event to his main calendar (or work calendar), and the buffer time application will delete and recreate that event whenever the buffer time event is changed, and the user gets the extra benefit of being able to edit the mirrored events in his calendar for extra control like moving it 10 minutes before, increasing duration etc.
-
-Instead of calling distance matrix for every event, all events should be scanned and only one call made for the distance matrix.
-
-provide on prem solution for free for power users to run their own python script (cron job script, create your own API key and have 200$ monthly for free on distance API).
 
 food for thought / ideas:
 - event.setTag("buffer time", buffer_time_event_id)
@@ -74,3 +66,5 @@ food for thought / ideas:
 - settings through homepage
 - onOpen replicate create event make location editable and prominent
 - check if user changed buffer time event
+- Instead of calling distance matrix for every event, all events should be scanned and only one call made for the distance matrix.
+- provide on prem solution for free for power users to run their own python script (cron job script, create your own API key and have 200$ monthly for free on distance API).
