@@ -32,6 +32,7 @@ function main() {
   // console.log("Log: yesterday: " + yesterday);
   // console.log("Log: next_sunday: " + next_sunday);
 
+  // TODO: this assumes all user calendars have the same timezone
   const calendars = CalendarApp.getAllOwnedCalendars();
   var all_events = [];
   for (let calendar of calendars) {
@@ -40,7 +41,7 @@ function main() {
     }
   }
 
-  all_events.sort(function (event_1, event_2) {
+  all_events.sort(function (event_1, event_2) { // sorts events by start_time
     let event_1_start_date = event_1.getStartTime();
     let event_2_start_date = event_2.getStartTime();
     if ( event_1_start_date < event_2_start_date ) {
@@ -51,6 +52,7 @@ function main() {
       return 0;
     }
   });
+  // console.log(all_events.map(e => e.getStartTime()))
 
   var user_cache = CacheService.getUserCache();
 
@@ -62,31 +64,32 @@ function main() {
   let event_start_date = undefined;
 
   for(const event of all_events) {
-    if (!!event_location) {
+    // console.log(event.getStartTime())
+    if (!!event_location) {  // if old event location exists
       last_location = event_location;
       last_location_date = event_start_date;
     }
     event_start_date = event.getStartTime();
-    // if (event_start_date.getDate() > current_date) {
+    // if (event_start_date.getDate() > current_date) {  // if new day has begun
       // current_date = event_start_date;
       // full_day_event_location = undefined;
     // }
 
     event_location = event.getLocation();
-    if (event.isAllDayEvent()) {
+    if (event.isAllDayEvent()) { // if event is an all day event
       // if (!!event_location) {
       //   full_day_event_location = event_location;
       // }
       continue;
     }
 
-    if (!!last_location) {
+    if (!!last_location) { // if last location exists
       if (event_start_date - last_location_date >= FOUR_HOURS_SECONDS * 1000) {
         last_location = undefined;
         last_location_date = undefined;
       }
     }
-    if (!last_location) {
+    if (!last_location) { // if last location doesn't exist
       // last_location = full_day_event_location ?? BASE_LOCATION;
       last_location = BASE_LOCATION;
     }
@@ -95,30 +98,40 @@ function main() {
     //   continue;
     // }
 
+    if (event.isRecurringEvent()) {
+      continue;
+    }
+
     let event_id = event.getId();
-    let event_cached = user_cache.get(event_id);
-    if (!!event_cached) {
-      console.log(`Log: Event is cached: ${event_cached}`)
+    let buffer_time_event_cached = user_cache.get(event_id);
+    if (!!buffer_time_event_cached) { // if event cached
+      console.log(`Log: Event is cached: ${buffer_time_event_cached}`)
+      //user_cache.remove(buffer_time_event_cached);
+      //continue;
       let [
         origin,
         destination,
         start_date,
         buffer_time_event_id
-       ] = JSON.parse(event_cached);
-
+       ] = JSON.parse(buffer_time_event_cached);
       if (
         origin !== last_location
         || destination !== event.getLocation()
-        || start_date !== event_start_date
-      ) {
+        || start_date !== event_start_date.toISOString()
+      ) { // if origin, destination or start_date changed
         if (!!buffer_time_event_id) {
           buffer_time_event = buffer_time_calendar.getEventById(
             buffer_time_event_id
           );
-          buffer_time_event.deleteEvent();
+          try {
+            buffer_time_event.deleteEvent();
+          } catch(err) {
+          }
           user_cache.remove(event.getId());
+          console.log(start_date, "HAHAHH", event_start_date.toISOString());
         }
-      } else {
+      } else { // origin, destination and start_date didn't change
+        // console.log(start_date);
         continue;
       }
     } // if event cached
@@ -210,6 +223,7 @@ function main() {
       // }
     )
     buffer_time_event_id = buffer_time_event.getId()
+    console.log(event_id)
     user_cache.put(
       event_id,
       JSON.stringify([
