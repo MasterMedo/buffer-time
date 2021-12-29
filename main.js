@@ -17,6 +17,7 @@ function main() {
     .getOwnedCalendarsByName(BUFFER_TIME_CALENDAR);
   if (buffer_time_calendars.length === 0) {
     var buffer_time_calendar = CalendarApp.createCalendar(BUFFER_TIME_CALENDAR);
+    console.log("Buffer time calendar created!")
   } else {
     // TODO: assume user has only one buffer time calendar
     var buffer_time_calendar = buffer_time_calendars[0];
@@ -105,6 +106,8 @@ function main() {
       continue;
     }
 
+    // TODO: recurring events don't have unique ids
+    // maybe they can be handled by using event tags?
     if (event.isRecurringEvent()) {
       continue;
     }
@@ -112,9 +115,12 @@ function main() {
     let event_id = event.getId();
     let buffer_time_event_cached = user_cache.get(event_id);
     if (!!buffer_time_event_cached) { // if event cached
-      console.log(`Log: Event is cached: ${buffer_time_event_cached}`)
-      //user_cache.remove(buffer_time_event_cached);
-      //continue;
+      // console.log(`Log: Event is cached: ${buffer_time_event_cached}`)
+      // -------------------------------------------
+      // commented block used for clearing the cache
+      // user_cache.remove(buffer_time_event_cached);
+      // continue;
+      // -------------------------------------------
       let [
         origin,
         destination,
@@ -127,14 +133,17 @@ function main() {
         || start_date !== event_start_date.toISOString()
       ) { // if origin, destination or start_date changed
         if (!!buffer_time_event_id) {
+          // sometimes this returns an event object even if the user deleted it
           buffer_time_event = buffer_time_calendar.getEventById(
             buffer_time_event_id
           );
           try {
             buffer_time_event.deleteEvent();
           } catch(err) {
+            // the user deleted the event already
           }
           user_cache.remove(event.getId());
+          console.log(`Buffer time event deleted from cache ${event.getId()}`)
         }
       } else { // origin, destination and start_date didn't change
         continue;
@@ -153,12 +162,6 @@ function main() {
       continue;
     }
 
-    const description_list = [
-      "Commute time",
-      "From: ${last_location}",
-      "To: ${event_location}",
-    ];
-
     // console.log("Log: Last location: " + last_location);
     // console.log("Log: event_location: " + event_location);
 
@@ -171,7 +174,7 @@ function main() {
       .getDirections()
       .routes[0]?.legs[0]?.duration?.value;
 
-    if (!duration_seconds) {
+    if (!duration_seconds) { // if a path doesn't exist from one location to the other
       continue;
     }
 
@@ -181,7 +184,7 @@ function main() {
         JSON.stringify([
           last_location,
           event_location,
-          event_start_date,
+          event_start_date.toISOString(),
           undefined,
         ]),
         THIRTY_DAYS_SECONDS
@@ -200,41 +203,51 @@ function main() {
       title += `${minutes} minutes`;
     }
 
-    // for (let transport of TRANSPORTS) {
-    //   if (transport === PREFERRED_TRANSPORT) {
-    //     description_list.push(`[x] ${title}`)
-    //     continue;
-    //   }
+    const description_list = [
+      "Commute time",
+      `From: ${last_location}`,
+      `To: ${event_location}`,
+    ];
 
-    //   let [duration, text] = get_duration(origin, destination, arrive, mode);
-    //   description_list.push(`[ ] ${text}`)
-    // }
+    // TODO: go over all transport methods
+    for (let transport of [PREFERRED_TRANSPORT]) {
+      if (transport === PREFERRED_TRANSPORT) {
+        description_list.push(`[x] ${title}`)
+        continue;
+      }
+
+      // let [duration, text] = get_duration(origin, destination, arrive, mode);
+      description_list.push(`[ ] ${title}`)
+    }
+
+    // adds in the description the even_id of the event it is tied to
     // description_list.push(EVENT_DESCRIPTION_ID_PREFIX + event_id);
-    // let buffer_time_event_description = description_list.join("\n");
+    let buffer_time_event_description = description_list.join("\n");
 
     let buffer_time_event_title = title;
     let buffer_time_event_duration = duration_seconds;
     let buffer_time_event_start_date = new Date(event_start_date.getTime() - buffer_time_event_duration * 1000);
     let buffer_time_event_end_date = event_start_date;
-    // console.log(`Log: BT title: ${buffer_time_event_title}`);
-    // console.log(`Log: BT start: ${buffer_time_event_start_date}`);
-    // console.log(`Log: BT end__: ${buffer_time_event_end_date}`);
+
     buffer_time_event = buffer_time_calendar.createEvent(
       buffer_time_event_title,
       buffer_time_event_start_date,
       buffer_time_event_end_date,
-      // {
-      //   description: buffer_time_event_description
-      // }
+      {
+        description: buffer_time_event_description
+      }
     )
+
+    console.log(`Buffer time event created: ${buffer_time_event}`)
+
     buffer_time_event_id = buffer_time_event.getId()
-    console.log(event_id)
+    console.log(`Buffer time event added to cache: ${event_id}`)
     user_cache.put(
       event_id,
       JSON.stringify([
         last_location,
         event_location,
-        event_start_date,
+        event_start_date.toISOString(),
         buffer_time_event_id,
       ]),
       THIRTY_DAYS_SECONDS
