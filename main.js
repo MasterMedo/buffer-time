@@ -12,6 +12,41 @@ const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 const BASE_LOCATION = undefined;
 const divmod = (x, y) => [Math.floor(x / y), x % y];
 
+
+function get_duration(origin, destination, arrive_time, transport) {
+  let cache = CacheService.getUserCache();
+  let key = JSON.stringify([origin, destination, transport]);
+
+  let duration = cache.get(key);
+  if (duration !== null) { // if key is not in cache (could be undefined)
+    try {
+      let n = Number(duration);
+      console.log(`Google maps cache kicked in: ${key}: ${n} seconds`);
+      return n;
+    } catch(err) {
+      return undefined; // a path doesn't exist
+    }
+  }
+
+  let transport_mode = PREFERRED_TRANSPORT;
+  var duration_seconds = Maps.newDirectionFinder()
+    .setOrigin(origin)
+    .setDestination(destination)
+    .setArrive(arrive_time)
+    .setMode(transport)
+    .getDirections()
+    .routes[0]?.legs[0]?.duration?.value;
+
+  if (!!duration_seconds) {
+    cache.put(key, JSON.stringify(duration_seconds), THIRTY_DAYS_SECONDS);
+  } else {
+    cache.put(key, "undefined", THIRTY_DAYS_SECONDS);
+  }
+
+  return duration_seconds;
+}
+
+
 function main() {
   var buffer_time_calendars = CalendarApp
     .getOwnedCalendarsByName(BUFFER_TIME_CALENDAR);
@@ -166,13 +201,12 @@ function main() {
     // console.log("Log: event_location: " + event_location);
 
     let transport_mode = PREFERRED_TRANSPORT;
-    var duration_seconds = Maps.newDirectionFinder()
-      .setOrigin(last_location)
-      .setDestination(event_location)
-      .setArrive(event_start_date)
-      .setMode(transport_mode)
-      .getDirections()
-      .routes[0]?.legs[0]?.duration?.value;
+    var duration_seconds = get_duration(
+      last_location,
+      event_location,
+      event_start_date,
+      transport_mode,
+    );
 
     if (!duration_seconds) { // if a path doesn't exist from one location to the other
       continue;
@@ -216,7 +250,7 @@ function main() {
         continue;
       }
 
-      // let [duration, text] = get_duration(origin, destination, arrive, mode);
+      // let duration = get_duration(origin, destination, arrive_time, mode);
       description_list.push(`[ ] ${title}`)
     }
 
