@@ -6,8 +6,10 @@ const EMOJI = { driving: "🚗", walking: "🚶", bicycling: "🚴", transit: "�
 const FOUR_HOURS_SECONDS = 4 * 60 * 60;
 const FIVE_HOURS_SECONDS = 5 * 60 * 60;
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
+
 // Home address, the address where the user spends their nights.
-const BASE_LOCATION = "Radmanovačka ul. 6f, 10000, Zagreb";
+// Should be set by using some kind of user interface
+const BASE_LOCATION = undefined;
 const divmod = (x, y) => [Math.floor(x / y), x % y];
 
 function main() {
@@ -16,14 +18,15 @@ function main() {
   if (buffer_time_calendars.length === 0) {
     var buffer_time_calendar = CalendarApp.createCalendar(BUFFER_TIME_CALENDAR);
   } else {
-    // assume user has only one buffer time calendar
+    // TODO: assume user has only one buffer time calendar
     var buffer_time_calendar = buffer_time_calendars[0];
   }
   var primary_calendar = CalendarApp.getDefaultCalendar();
 
-  // assume all calendars have the same timezone as the default calendar
+  // TODO: assume all calendars have the same timezone as the default calendar
   const time_zone = primary_calendar.getTimeZone();
   const today = new Date(new Date().setHours(0, 0, 0, 0));
+
   // google script doesn't provide a method to get first day of the week
   const week_day = Utilities.formatDate(today, time_zone, "u");
   const yesterday = new Date(today.getTime() - 864e5);
@@ -32,7 +35,7 @@ function main() {
   // console.log("Log: yesterday: " + yesterday);
   // console.log("Log: next_sunday: " + next_sunday);
 
-  // TODO: this assumes all user calendars have the same timezone
+  // TODO: assumes all user calendars have the same timezone
   const calendars = CalendarApp.getAllOwnedCalendars();
   var all_events = [];
   for (let calendar of calendars) {
@@ -52,8 +55,9 @@ function main() {
       return 0;
     }
   });
-  // console.log(all_events.map(e => e.getStartTime()))
 
+  // gets user cache, the cache cannot be cleared except key by key
+  // this is why we set the cache to 30 days
   var user_cache = CacheService.getUserCache();
 
   // let current_date = yesterday;
@@ -67,9 +71,11 @@ function main() {
     // console.log(event.getStartTime())
     if (!!event_location) {  // if old event location exists
       last_location = event_location;
-      last_location_date = event_start_date;
+      last_location_date = event.getEndTime();
     }
+
     event_start_date = event.getStartTime();
+    // TODO: handle full day events
     // if (event_start_date.getDate() > current_date) {  // if new day has begun
       // current_date = event_start_date;
       // full_day_event_location = undefined;
@@ -84,6 +90,7 @@ function main() {
     }
 
     if (!!last_location) { // if last location exists
+      // if more than four hours passed since user was at last location
       if (event_start_date - last_location_date >= FOUR_HOURS_SECONDS * 1000) {
         last_location = undefined;
         last_location_date = undefined;
@@ -94,9 +101,9 @@ function main() {
       last_location = BASE_LOCATION;
     }
 
-    // if (!last_location) {
-    //   continue;
-    // }
+    if (!last_location) { // if BASE_LOCATION isn't set
+      continue;
+    }
 
     if (event.isRecurringEvent()) {
       continue;
@@ -128,10 +135,8 @@ function main() {
           } catch(err) {
           }
           user_cache.remove(event.getId());
-          console.log(start_date, "HAHAHH", event_start_date.toISOString());
         }
       } else { // origin, destination and start_date didn't change
-        // console.log(start_date);
         continue;
       }
     } // if event cached
