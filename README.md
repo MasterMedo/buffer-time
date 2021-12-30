@@ -2,10 +2,10 @@
 
 ## Short description
 Travel Time Events is a Google Calendar Add-on application that creates travelling events between two calendar events that have a location.
-It calculates travel time from your current location to the location of your event and creates a calendar entry by utilising the Google Maps API.
+It calculates travel time from the origin location to the destination location by utilising the Google Maps API and creates a travel event in the "Travel time" calendar.
 
 ## Detailed description
-Travel Time Events creates a user calendar by the name "Travel Time Calendar".
+Travel Time Events creates a user calendar by the name "Travel time".
 On every calendar change (edit or create event), the application gets all
 events from all of the user's calendars from yesterday to two weeks in the
 future. The events are ordered and a timeline of location changes is
@@ -19,29 +19,29 @@ the number of calls to the API. Travel Time events are tied to real events
 in the user's calendars. That allows the user to change the original event,
 and Travel Time events are going to be updated automatically.
 
-# how does it work?
+# How does it work?
 The user creates two events less than 4 hours apart with different locations.
-On every calendar update, the application calculates the duration of Travel
-Time events and creates those events in the Travel Time Calendar.
+On every calendar update, the application calculates the duration of the trip using the Google Maps API and creates Travel Time events in the Travel Time Calendar.
 
-# privacy policy
+# Privacy policy
 User data is not shared. The application has no external dependencies, and
 does not use any external APIs. The only APIs used by the application are
 Google Cache service, Maps API and Calendar API.
 
-# pricing
+# Pricing
 The application is free.
 
 # OAuth Scopes
 "https://www.googleapis.com/auth/calendar"
-- get all calendars
-- get all events
-- create "Travel Time Calendar"
-- create events in "Travel Time Calendar"
-- edit events in "Travel Time Calendar"
-- delete events in "Travel Time Calendar"
+Explanation of the requirements of the application:
+- get all user's calendars
+- get all calendar events
+- create "Travel time" calendar
+- create events in "Travel time" calendar
+- edit events in "Travel time" calendar
+- delete events in "Travel time" calendar
 
-Settings:
+# TODO Settings
   - Calendar watchlist (NOTE: when excluding a calendar all upcoming Travel Time events for that calendar will be removed)
     - [x] Activities and events
     - [x] *External calendars*
@@ -57,7 +57,7 @@ Settings:
   - [ ] Create Travel Time events after an event
   - [ ] Notify 10 min before Travel Time event
 
-questions:
+# Questions
 - What if location invalid, e.g. number of hotel room?
   - [x] ~Use geocoder status to determine if the location is valid. If location is invalid don't create a Travel Time event for it~ The `duration` will be `None` for the distance matrix call if the location is invalid.
   - [x] Ignore all locations farther than 6h.
@@ -94,7 +94,7 @@ questions:
 Proposition of a solution on editing Travel Time events and other people not seeing your Travel Time calendar:
 Let's have a "mirror" function, that would copy the Travel Time event to his main calendar (or work calendar), and the Travel Time application will delete and recreate that event whenever the Travel Time event is changed, and the user gets the extra benefit of being able to edit the mirrored events in his calendar for extra control like moving it 10 minutes before, increasing duration etc.
 
-food for thought / ideas:
+# Food for thought / ideas
 - event.setTag("Travel Time", Travel_time_event_id)
 - loom video showing the functionality
 - ScriptCache instead of UserCache
