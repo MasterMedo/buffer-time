@@ -1,4 +1,4 @@
-const BUFFER_TIME_CALENDAR = 'Buffer time';
+const TRAVEL_TIME_CALENDAR = 'Travel time';
 // const EVENT_DESCRIPTION_ID_PREFIX = 'Tied to event: ';
 const PREFERRED_TRANSPORT = Maps.DirectionFinder.Mode.DRIVING;
 // const TRANSPORTS = ['driving', 'walking', 'bicycling', 'transit'];
@@ -63,9 +63,9 @@ function getDuration(origin, destination, arriveTime, transport) {
  *   🚗 Driving 3 hours 23 minutes
  *   🚴 Bicycling 56 minutes.
  *
- * @param {Integer} durationSeconds  Commute/travel duration in seconds.
- * @param {String} transport A mode from `Maps.DirectionFinder.Mode`.
- * @return {String}          Formatted text title.
+ * @param {Integer} durationSeconds Commute/travel duration in seconds.
+ * @param {String} transport        A mode from `Maps.DirectionFinder.Mode`.
+ * @return {String}                 Formatted text title.
 */
 function secondsToText(durationSeconds, transport) {
   const minutesPre = Math.floor(durationSeconds / 60);
@@ -73,7 +73,7 @@ function secondsToText(durationSeconds, transport) {
 
   let title = `${EMOJI[transport]} ${transport} `;
   if (hours) {
-    title += `${hours} hours`;
+    title += `${hours} hours `;
   }
   if (minutes) {
     title += `${minutes} minutes`;
@@ -83,29 +83,29 @@ function secondsToText(durationSeconds, transport) {
 
 
 /**
- * Creates "buffer time" calendar events that represent commute/travel times
+ * Creates "Travel time" calendar events that represent commute/travel times
  * from an origin location to the destination location so that the user is
  * aware when it's best to get going.
  *
- * 1. Creates or fetches the "buffer time calendar".
+ * 1. Creates or fetches the "travel time calendar".
  * 2. Fetches all events from all user calendars.
  * 3. Sorts all events by start time.
  * 4. For each event calculates commute/travel time from last event's
  * location to the location of the current event.
- * 5. Creates a "buffer time" event before each event where the commute
+ * 5. Creates a "travel time" event before each event where the commute
  * duration is less than 5 hours and the last known location time was less
  * than 4 hours ago.
  */
 function main() {
-  const bufferTimeCalendars = CalendarApp
-      .getOwnedCalendarsByName(BUFFER_TIME_CALENDAR);
-  let bufferTimeCalendar = undefined;
-  if (bufferTimeCalendars.length === 0) {
-    bufferTimeCalendar = CalendarApp.createCalendar(BUFFER_TIME_CALENDAR);
-    console.log('Buffer time calendar created!');
+  const travelTimeCalendars = CalendarApp
+      .getOwnedCalendarsByName(TRAVEL_TIME_CALENDAR);
+  let travelTimeCalendar = undefined;
+  if (travelTimeCalendars.length === 0) {
+    travelTimeCalendar = CalendarApp.createCalendar(TRAVEL_TIME_CALENDAR);
+    console.log('Travel time calendar created!');
   } else {
-    // TODO: assume user has only one buffer time calendar
-    bufferTimeCalendar = bufferTimeCalendars[0];
+    // TODO: assume user has only one travel time calendar
+    travelTimeCalendar = travelTimeCalendars[0];
   }
   const primaryCalendar = CalendarApp.getDefaultCalendar();
 
@@ -125,7 +125,7 @@ function main() {
   const calendars = CalendarApp.getAllOwnedCalendars();
   let allEvents = [];
   for (const calendar of calendars) {
-    if (calendar.getId() !== bufferTimeCalendar.getId()) {
+    if (calendar.getId() !== travelTimeCalendar.getId()) {
       allEvents = allEvents.concat(calendar.getEvents(yesterday, nextSunday));
     }
   }
@@ -198,37 +198,37 @@ function main() {
     }
 
     const eventId = event.getId();
-    const bufferTimeEventCached = userCache.get(eventId);
-    if (!!bufferTimeEventCached) { // if event cached
-      // console.log(`Log: Event is cached: ${bufferTimeEventCached}`)
+    const travelTimeEventCached = userCache.get(eventId);
+    if (!!travelTimeEventCached) { // if event cached
+      // console.log(`Log: Event is cached: ${travelTimeEventCached}`)
       // -------------------------------------------
       // commented block used for clearing the cache
-      // userCache.remove(bufferTimeEventCached);
+      // userCache.remove(travelTimeEventCached);
       // continue;
       // -------------------------------------------
       const [
         origin,
         destination,
         startDate,
-        bufferTimeEventId,
-      ] = JSON.parse(bufferTimeEventCached);
+        travelTimeEventId,
+      ] = JSON.parse(travelTimeEventCached);
       if (
         origin !== lastLocation ||
         destination !== event.getLocation() ||
         startDate !== eventStartDate.toISOString()
       ) { // if origin, destination or startDate changed
-        if (!!bufferTimeEventId) {
+        if (!!travelTimeEventId) {
           // sometimes this returns an event object even if the user deleted it
-          bufferTimeEvent = bufferTimeCalendar.getEventById(
-              bufferTimeEventId,
+          travelTimeEvent = travelTimeCalendar.getEventById(
+              travelTimeEventId,
           );
           try {
-            bufferTimeEvent.deleteEvent();
+            travelTimeEvent.deleteEvent();
           } catch (err) {
             // the user deleted the event already
           }
           userCache.remove(event.getId());
-          console.log(`Buffer time event deleted from cache ${event.getId()}`);
+          console.log(`Travel time event deleted from cache ${event.getId()}`);
         }
       } else { // origin, destination and startDate didn't change
         continue;
@@ -297,35 +297,35 @@ function main() {
 
     // adds in the description the even_id of the event it is tied to
     // descriptionList.push(EVENT_DESCRIPTION_ID_PREFIX + eventId);
-    const bufferTimeEventDescription = descriptionList.join('\n');
+    const travelTimeEventDescription = descriptionList.join('\n');
 
-    const bufferTimeEventTitle = title;
-    const bufferTimeEventDuration = durationSeconds;
-    const bufferTimeEventStartDate = new Date(
-        eventStartDate.getTime() - bufferTimeEventDuration * 1000,
+    const travelTimeEventTitle = title;
+    const travelTimeEventDuration = durationSeconds;
+    const travelTimeEventStartDate = new Date(
+        eventStartDate.getTime() - travelTimeEventDuration * 1000,
     );
-    const bufferTimeEventEndDate = eventStartDate;
+    const travelTimeEventEndDate = eventStartDate;
 
-    bufferTimeEvent = bufferTimeCalendar.createEvent(
-        bufferTimeEventTitle,
-        bufferTimeEventStartDate,
-        bufferTimeEventEndDate,
+    travelTimeEvent = travelTimeCalendar.createEvent(
+        travelTimeEventTitle,
+        travelTimeEventStartDate,
+        travelTimeEventEndDate,
         {
-          description: bufferTimeEventDescription,
+          description: travelTimeEventDescription,
         },
     );
 
-    console.log(`Buffer time event created: ${bufferTimeEvent}`);
+    console.log(`Travel time event created: ${travelTimeEvent}`);
 
-    bufferTimeEventId = bufferTimeEvent.getId();
-    console.log(`Buffer time event added to cache: ${eventId}`);
+    travelTimeEventId = travelTimeEvent.getId();
+    console.log(`Travel time event added to cache: ${eventId}`);
     userCache.put(
         eventId,
         JSON.stringify([
           lastLocation,
           eventLocation,
           eventStartDate.toISOString(),
-          bufferTimeEventId,
+          travelTimeEventId,
         ]),
         THIRTY_DAYS_SECONDS,
     );
