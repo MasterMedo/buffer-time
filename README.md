@@ -103,3 +103,5 @@ Let's have a "mirror" function, that would copy the Travel Time event to his mai
 - check if user changed Travel Time event
 - Instead of calling distance matrix for every event, all events should be scanned and only one call made for the distance matrix.
 - provide on prem solution for free for power users to run their own python script (cron job script, create your own API key and have 200$ monthly for free on distance API).
+
+google-site-verification: google6ef22c01e75b10c5.html
