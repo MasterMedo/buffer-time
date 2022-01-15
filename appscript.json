@@ -1,0 +1,44 @@
+{
+  "timeZone": "Europe/Belgrade",
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Calendar",
+        "version": "v3",
+        "serviceId": "calendar"
+      }
+    ]
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "addOns": {
+    "calendar": {
+      "currentEventAccess": "READ_WRITE",
+      "eventOpenTrigger": {
+        "runFunction": "main"
+      },
+      "eventUpdateTrigger": {
+        "runFunction": "createEvent"
+      },
+      "homepageTrigger": {
+        "runFunction": "main",
+        "enabled": true
+      }
+    },
+    "common": {
+      "homepageTrigger": {
+        "runFunction": "onDefaultHomePageOpen",
+        "enabled": false
+      },
+      "layoutProperties": {
+        "primaryColor": "#ff392b",
+        "secondaryColor": "#d68617"
+      },
+      "logoUrl": "https://avatars.githubusercontent.com/u/16375100?v=4",
+      "name": "Travel Time Events"
+    }
+  },
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/calendar"
+  ]
+}
